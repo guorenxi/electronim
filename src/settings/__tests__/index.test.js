@@ -124,7 +124,9 @@ describe('Settings module test suite', () => {
         '{\n  "tabs": [],\n' +
         '  "useNativeSpellChecker": false,\n' +
         '  "enabledDictionaries": [\n    "en"\n  ],\n' +
-        '  "theme": "system",\n  "trayEnabled": false,\n' +
+        '  "theme": "system",\n' +
+        '  "trayEnabled": false,\n' +
+        '  "startMinimized": false,\n' +
         '  "closeButtonBehavior": "quit"\n' +
         '}');
     });
@@ -140,6 +142,7 @@ describe('Settings module test suite', () => {
         '  "enabledDictionaries": [\n    "en"\n  ],\n' +
         '  "theme": "system",\n' +
         '  "trayEnabled": false,\n' +
+        '  "startMinimized": false,\n' +
         '  "closeButtonBehavior": "quit",\n' +
         '  "activeTab": 1337,\n' +
         '  "otherSetting": "1337"\n' +
@@ -157,6 +160,7 @@ describe('Settings module test suite', () => {
         '  "enabledDictionaries": [\n    "en"\n  ],\n' +
         '  "theme": "system",\n' +
         '  "trayEnabled": false,\n' +
+        '  "startMinimized": false,\n' +
         '  "closeButtonBehavior": "quit",\n' +
         '  "activeTab": 1337\n}');
     });
@@ -165,7 +169,7 @@ describe('Settings module test suite', () => {
     let mainWindow;
     let openSettings;
     beforeEach(() => {
-      mainWindow = electron.browserWindowInstance;
+      mainWindow = electron.baseWindowInstance;
       mainWindow.getContentBounds = jest.fn(() => ({width: 13, height: 37}));
       openSettings = settings.openSettingsDialog(mainWindow);
     });
@@ -173,9 +177,9 @@ describe('Settings module test suite', () => {
       // When
       openSettings();
       // Then
-      const BrowserView = require('electron').BrowserView;
-      expect(BrowserView).toHaveBeenCalledTimes(1);
-      expect(BrowserView).toHaveBeenCalledWith({
+      const WebContentsView = require('electron').WebContentsView;
+      expect(WebContentsView).toHaveBeenCalledTimes(1);
+      expect(WebContentsView).toHaveBeenCalledWith({
         webPreferences: expect.objectContaining({sandbox: true, nodeIntegration: false})
       });
     });
@@ -183,8 +187,8 @@ describe('Settings module test suite', () => {
       // When
       openSettings();
       // Then
-      expect(electron.browserViewInstance.webContents.loadURL).toHaveBeenCalledTimes(1);
-      expect(electron.browserViewInstance.webContents.loadURL)
+      expect(electron.webContentsViewInstance.webContents.loadURL).toHaveBeenCalledTimes(1);
+      expect(electron.webContentsViewInstance.webContents.loadURL)
         .toHaveBeenCalledWith(expect.stringMatching(/.+?\/index.html$/));
     });
   });

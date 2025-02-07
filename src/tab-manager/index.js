@@ -13,12 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-const {app, BrowserView, session} = require('electron');
+const {app, WebContentsView, session} = require('electron');
 const path = require('path');
 const {APP_EVENTS} = require('../constants');
 const {loadSettings, updateSettings} = require('../settings');
 const {getEnabledDictionaries, getUseNativeSpellChecker} = require('../spell-check');
-const {userAgentForView, addUserAgentInterceptor} = require('../user-agent');
+const {userAgentForWebContents, addUserAgentInterceptor} = require('../user-agent');
 const {handleContextMenu} = require('./context-menu');
 const {handleRedirect, windowOpenHandler} = require('./redirect');
 
@@ -37,19 +37,19 @@ const handlePageTitleUpdated = (ipcSender, tabId) => (_e, title) => {
   ipcSender.send(APP_EVENTS.setTabTitle, {id: tabId, title: title});
 };
 
-const extractFavicon = async browserView => {
-  let favicons = await browserView.webContents
+const extractFavicon = async view => {
+  let favicons = await view.webContents
     .executeJavaScript('Array.from(document.querySelectorAll(\'link[rel="shortcut icon"]\')).map(el => el.href)');
   if (favicons.length === 0) {
-    favicons = await browserView.webContents
+    favicons = await view.webContents
       .executeJavaScript('Array.from(document.querySelectorAll(\'link[rel*="icon"]\')).map(el => el.href)');
   }
   return favicons;
 };
 
-const handlePageFaviconUpdated = (browserView, ipcSender, tabId) => async (_e, favicons = []) => {
+const handlePageFaviconUpdated = (view, ipcSender, tabId) => async (_e, favicons = []) => {
   if (favicons.length === 0) {
-    favicons = await extractFavicon(browserView);
+    favicons = await extractFavicon(view);
   }
   if (favicons.length > 0) {
     ipcSender.send(APP_EVENTS.setTabFavicon, {id: tabId, favicon: favicons[favicons.length - 1]});
@@ -59,16 +59,18 @@ const handlePageFaviconUpdated = (browserView, ipcSender, tabId) => async (_e, f
 // Required for Service Workers -> https://github.com/electron/electron/issues/16196
 const setGlobalUserAgentFallback = userAgent => (app.userAgentFallback = userAgent);
 
-const cleanUserAgent = browserView => {
-  const validUserAgent = userAgentForView(browserView);
-  browserView.webContents.userAgent = validUserAgent;
+const cleanUserAgent = view => {
+  const validUserAgent = userAgentForWebContents(view.webContents);
+  view.webContents.userAgent = validUserAgent;
   setGlobalUserAgentFallback(validUserAgent);
 };
 
 const addTabs = ipcSender => tabsMetadata => {
   const useNativeSpellChecker = getUseNativeSpellChecker();
   const enabledDictionaries = getEnabledDictionaries();
-  tabsMetadata.forEach(({id, url, sandboxed = false}) => {
+  tabsMetadata.forEach(({
+    id, url, sandboxed = false, openUrlsInApp = false
+  }) => {
     const tabPreferences = {...webPreferences};
     if (sandboxed) {
       tabPreferences.session = session.fromPartition(`persist:${id}`, {cache: true});
@@ -89,14 +91,15 @@ const addTabs = ipcSender => tabsMetadata => {
     if (tabPreferences.experiment) { // USE NATIVE SPELL CHECKER
       tabPreferences.session.setSpellCheckerDictionaryDownloadURL('file:///home/user/00-MN/projects/manusa/electronim/dictionaries/');
     }
-    const tab = new BrowserView({webPreferences: tabPreferences});
-    tab.setAutoResize({width: false, horizontal: false, height: false, vertical: false});
+    const tab = new WebContentsView({webPreferences: tabPreferences});
 
     cleanUserAgent(tab);
     tab.webContents.loadURL(url);
 
-    tab.webContents.on('will-navigate', handleRedirect(tab));
-    tab.webContents.setWindowOpenHandler(windowOpenHandler(tab));
+    if (!openUrlsInApp) {
+      tab.webContents.on('will-navigate', handleRedirect(tab));
+      tab.webContents.setWindowOpenHandler(windowOpenHandler(tab));
+    }
 
     const handlePageTitleUpdatedForCurrentTab = handlePageTitleUpdated(ipcSender, id);
     tab.webContents.on('page-title-updated', handlePageTitleUpdatedForCurrentTab);
@@ -114,6 +117,21 @@ const addTabs = ipcSender => tabsMetadata => {
     tabs[id.toString()] = tab;
   });
   ipcSender.send(APP_EVENTS.addTabs, tabsMetadata);
+};
+
+const sortTabs = tabIds => {
+  if (tabIds.length !== Object.keys(tabs).length) {
+    // Skip in case there are inconsistencies
+    console.error(`Inconsistent tab state, skipping sort operation (${tabIds.length} !== ${Object.keys(tabs).length}).`);
+    return;
+  }
+  const oldTabs = {...tabs};
+  // Clean previous state
+  Object.keys(tabs).forEach(key => delete tabs[key]);
+  // Set the tabs with the correct ordering
+  for (const tabId of tabIds) {
+    tabs[tabId] = oldTabs[tabId];
+  }
 };
 
 const getTab = tabId => (tabId ? tabs[tabId.toString()] : null);
@@ -150,11 +168,16 @@ const getTabAt = position => {
 };
 
 const removeAll = () => {
-  Object.values(tabs).forEach(browserView => browserView.webContents.destroy());
+  Object.values(tabs).forEach(view => view.webContents.destroy());
   Object.keys(tabs).forEach(key => delete tabs[key]);
 };
 
-const reload = () => Object.values(tabs).forEach(browserView => browserView.webContents.reload());
+const reload = () => Object.values(tabs).forEach(view => view.webContents.reload());
+
+const stopFindInPage = () => Object.values(tabs).forEach(view => {
+  view.webContents.stopFindInPage('clearSelection');
+  view.webContents.removeAllListeners('found-in-page');
+});
 
 const canNotify = tabId => {
   const {tabs: tabsSettings, disableNotificationsGlobally} = loadSettings();
@@ -166,5 +189,6 @@ const canNotify = tabId => {
 };
 
 module.exports = {
-  addTabs, getTab, getTabAt, getActiveTab, setActiveTab, getNextTab, getPreviousTab, canNotify, reload, removeAll
+  addTabs, sortTabs, getTab, getTabAt, getActiveTab, setActiveTab, getNextTab, getPreviousTab,
+  canNotify, reload, removeAll, stopFindInPage
 };

@@ -13,18 +13,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-/* eslint-disable no-console */
 const {waitFor} = require('@testing-library/dom');
 
 describe('Tab Manager Module preload test suite', () => {
   let mockElectron;
   beforeEach(() => {
-    mockElectron = {
-      webFrame: {setSpellCheckProvider: jest.fn()},
-      ipcRenderer: {invoke: async () => ({useNativeSpellChecker: false})}
-    };
     jest.resetModules();
-    jest.mock('electron', () => mockElectron);
+    jest.mock('electron', () => require('../../__tests__').mockElectronInstance());
+    mockElectron = require('electron');
+    // noinspection JSConstantReassignment,JSValidateTypes
+    mockElectron.webFrame = {setSpellCheckProvider: jest.fn()};
+    mockElectron.ipcRenderer.invoke = async () => ({useNativeSpellChecker: false});
     window.APP_EVENTS = require('../../constants').APP_EVENTS;
     window.ELECTRONIM_VERSION = '1.33.7';
     window.Notification = 'NOT A FUNCTION';

@@ -14,10 +14,51 @@
    limitations under the License.
  */
 
-const mockBrowserWindowInstance = () => {
+const mockWebContentsViewInstance = () => {
   const instance = {
     listeners: {},
-    addBrowserView: jest.fn(),
+    on: jest.fn((eventName, func) => {
+      instance.listeners[eventName] = func;
+    }),
+    setBounds: jest.fn(),
+    webContents: {
+      loadedUrl: '',
+      copy: jest.fn(),
+      copyImageAt: jest.fn(),
+      cut: jest.fn(),
+      destroy: jest.fn(),
+      executeJavaScript: jest.fn(async () => {}),
+      // https://www.electronjs.org/docs/latest/api/web-contents#contentsfindinpagetext-options
+      // contents.findInPage(text[, options])
+      findInPage: jest.fn(),
+      focus: jest.fn(),
+      getURL: jest.fn(),
+      // https://nodejs.org/api/events.html#emitterlistenerseventname
+      listeners: jest.fn(eventName => instance.listeners[eventName] || []),
+      loadURL: jest.fn(url => {
+        instance.webContents.loadedUrl = url;
+      }),
+      navigationHistory: {
+        goBack: jest.fn()
+      },
+      on: jest.fn((...args) => instance.on(...args)),
+      openDevTools: jest.fn(),
+      paste: jest.fn(),
+      reload: jest.fn(),
+      removeAllListeners: jest.fn(),
+      send: jest.fn(),
+      session: {},
+      setWindowOpenHandler: jest.fn(),
+      stopFindInPage: jest.fn(),
+      userAgent: 'Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/1337.36 (KHTML, like Gecko) ElectronIM/13.337.0 Chrome/WillBeReplacedByLatestChromium Electron/0.0.99 Safari/537.36'
+    }
+  };
+  return instance;
+};
+
+const mockBaseWindowInstance = () => {
+  const instance = {
+    listeners: {},
     destroy: jest.fn(),
     getContentBounds: jest.fn(() => ({})),
     isFullScreen: jest.fn(),
@@ -26,47 +67,33 @@ const mockBrowserWindowInstance = () => {
     on: jest.fn((eventName, func) => {
       instance.listeners[eventName] = func;
     }),
-    removeBrowserView: jest.fn(),
     removeMenu: jest.fn(),
-    setAutoResize: jest.fn(),
     setBounds: jest.fn(),
-    setBrowserView: jest.fn(),
     setFullScreen: jest.fn(),
-    webContents: {
-      loadedUrl: '',
-      browserWindowInstance: () => instance,
-      copy: jest.fn(),
-      copyImageAt: jest.fn(),
-      cut: jest.fn(),
-      destroy: jest.fn(),
-      executeJavaScript: jest.fn(async () => {}),
-      focus: jest.fn(),
-      getURL: jest.fn(),
-      goBack: jest.fn(),
-      loadURL: jest.fn(url => {
-        instance.webContents.loadedUrl = url;
+    show: jest.fn(),
+    showInactive: jest.fn(),
+    contentView: {
+      addChildView: jest.fn(view => instance.contentView.children.push(view)),
+      removeChildView: jest.fn(view => {
+        instance.contentView.children = instance.contentView.children.filter(child => child !== view);
       }),
-      on: jest.fn((...args) => instance.on(...args)),
-      openDevTools: jest.fn(),
-      paste: jest.fn(),
-      reload: jest.fn(),
-      send: jest.fn(),
-      session: {},
-      setWindowOpenHandler: jest.fn(),
-      userAgent: 'Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/1337.36 (KHTML, like Gecko) ElectronIM/13.337.0 Chrome/WillBeReplacedByLatestChromium Electron/0.0.99 Safari/537.36'
+      children: []
     }
   };
   return instance;
 };
 
 const mockElectronInstance = ({...overriddenProps} = {}) => {
-  const browserViewInstance = mockBrowserWindowInstance();
-  const browserWindowInstance = mockBrowserWindowInstance();
+  const webContentsViewInstance = mockWebContentsViewInstance();
+  const baseWindowInstance = mockBaseWindowInstance();
   const sessionInstance = {
+    availableSpellCheckerLanguages: [],
     clearCache: jest.fn(),
     clearCodeCaches: jest.fn(),
     clearHostResolverCache: jest.fn(),
     clearStorageData: jest.fn(),
+    setSpellCheckerEnabled: jest.fn(),
+    setSpellCheckerLanguages: jest.fn(),
     userAgentInterceptor: true
   };
   const trayInstance = {
@@ -74,10 +101,10 @@ const mockElectronInstance = ({...overriddenProps} = {}) => {
     on: jest.fn()
   };
   const instance = {
-    BrowserView: jest.fn(() => browserViewInstance),
-    browserViewInstance,
-    BrowserWindow: jest.fn(() => browserWindowInstance),
-    browserWindowInstance,
+    WebContentsView: jest.fn(() => webContentsViewInstance),
+    webContentsViewInstance,
+    BaseWindow: jest.fn(() => baseWindowInstance),
+    baseWindowInstance,
     Menu: jest.fn(),
     MenuItem: jest.fn(),
     Notification: jest.fn(),
@@ -125,6 +152,7 @@ const mockElectronInstance = ({...overriddenProps} = {}) => {
       })
     },
     ipcRenderer: {
+      on: jest.fn(),
       send: jest.fn()
     },
     nativeTheme: {},
@@ -137,8 +165,7 @@ const mockElectronInstance = ({...overriddenProps} = {}) => {
     },
     ...overriddenProps
   };
-  instance.BrowserWindow.fromWebContents = jest.fn(webContents => webContents.browserWindowInstance());
   return instance;
 };
 
-module.exports = {mockBrowserWindowInstance, mockElectronInstance};
+module.exports = {mockBaseWindowInstance, mockWebContentsViewInstance, mockElectronInstance};

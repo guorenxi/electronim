@@ -20,8 +20,8 @@ const entries = ({webContents, params}) => {
   return [
     [{
       label: 'Back',
-      enabled: webContents.canGoBack(),
-      click: () => webContents.goBack()
+      enabled: webContents.navigationHistory.canGoBack(),
+      click: () => webContents.navigationHistory.goBack()
     }, {
       label: 'Reload',
       click: () => webContents.reload()
@@ -77,7 +77,7 @@ const regularContextMenu = ({webContents, params}) => {
 };
 
 /**
- * @param {BrowserView|BrowserWindow} viewOrWindow
+ * @param {WebContentsView|BaseWindow} viewOrWindow
  * @returns {(function(*, *): Promise<void>)|*}
  */
 const handleContextMenu = viewOrWindow => async (_event, params) => {
@@ -89,7 +89,7 @@ const handleContextMenu = viewOrWindow => async (_event, params) => {
     menu = regularContextMenu({webContents, params});
   }
   const {x, y} = params;
-  menu.popup({x, y});
+  menu.popup({x: x + 1, y: y + 1});
 };
 
 module.exports = {handleContextMenu};

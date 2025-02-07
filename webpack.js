@@ -14,7 +14,6 @@
    See the License for the specific language governing permissions and
    limitations under the License.
  */
-/* eslint-disable no-console */
 const webpack = require('webpack');
 const path = require('path');
 const fsp = require('fs/promises');
@@ -28,6 +27,7 @@ const PRELOAD_ENTRIES = [
   'about',
   'app-menu',
   'chrome-tabs',
+  'find-in-page',
   'help',
   'settings',
   'tab-manager'

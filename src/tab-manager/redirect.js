@@ -15,10 +15,15 @@
  */
 const {shell} = require('electron');
 
-const matchUrls = regexList => (browserViewUrl, url) =>
-  regexList.some(regex => browserViewUrl.href.match(regex) || url.href.match(regex));
+const matchUrls = regexList => (viewUrl, url) =>
+  regexList.some(regex => viewUrl.href.match(regex) || url.href.match(regex));
 
 const isOAuth = matchUrls([
+  // Generic Matrix protocol support https://www.matrix.org/
+  /^https:\/\/[^/]+\/(.+\/)?_matrix\/client\/v3\/login\/sso\/.*/, // NOSONAR
+  /^https:\/\/chat.eclipse.org\/\?loginToken.*/, // NOSONAR
+  /^https:\/\/matrix.eclipse.org\/.+\/login\/sso\/.*/, // NOSONAR
+  /^https:\/\/app\.gitter\.im\/\?loginToken.*/, // NOSONAR
   /^https:\/\/(.+\.)?github\.com\/login\/oauth.*/, // NOSONAR
   /^https:\/\/sso\.godaddy\.com\/.*/, // NOSONAR
   /^https:\/\/.+\.google\.com\/o\/oauth2\/.*/, // NOSONAR
@@ -28,30 +33,35 @@ const isOAuth = matchUrls([
   /^https:\/\/account\.live\.com\/.*/, // NOSONAR
   /^https:\/\/login\.live\.com\/.*/, // NOSONAR
   /^https:\/\/login\.microsoftonline\.com\/.*/, // NOSONAR
+  /^https:\/\/auth\.openai\.com\/.*/, // NOSONAR
+  /^https:\/\/auth0\.openai\.com\/.*/, // NOSONAR
   /^https:\/\/auth\.redhat\.com\/auth\/.*/, // NOSONAR
   /^https:\/\/sso\.secureserver\.net\/.*/, // NOSONAR
   /^https:\/\/.+\.skype\.com\/login\/.*/, // NOSONAR
   /^https:\/\/.+\.skype\.com\/Auth\/.*/, // NOSONAR
   /^https:\/\/.+\.twitter\.com\/login.*/, // NOSONAR
   /^https:\/\/.+\.twitter\.com\/logout.*/, // NOSONAR
+  /^https:\/\/twitter\.com\/x.*/, // NOSONAR
+  /^https:\/\/x\.com\/login.*/, // NOSONAR
+  /^https:\/\/x\.com\/logout.*/, // NOSONAR
   /^https:\/\/idbroker\.webex\.com\/idb\/oauth2\/.*/, // NOSONAR
   /^https:\/\/accounts\.zoho\.(eu|com)\/signin.*/, // NOSONAR
   /^https:\/\/.+\.zoom\.us\/profile.*/, // NOSONAR
   /^https:\/\/.+\.zoom\.us\/signin.*/ // NOSONAR
 ]);
 
-const isHandledInternally = (browserViewUrl, url) => [
+const isHandledInternally = (viewUrl, url) => [
   /^https:\/\/app\.slack\.com\/.*/, // NOSONAR
   /^https:\/\/files\.slack\.com\/.*/ // NOSONAR
 ].some(regex => url.href.match(regex));
 
-const isSameOrigin = (browserViewUrl, url) => url.origin === browserViewUrl.origin;
+const isSameOrigin = (viewUrl, url) => url.origin === viewUrl.origin;
 
-const shouldOpenInExternalBrowser = (browserView, url) => {
-  const browserViewUrl = new URL(browserView.webContents.getURL());
+const shouldOpenInExternalBrowser = (view, url) => {
+  const viewUrl = new URL(view.webContents.getURL());
   let ret = true;
   [isSameOrigin, isOAuth, isHandledInternally].forEach(f => {
-    if (ret && f(browserViewUrl, url)) {
+    if (ret && f(viewUrl, url)) {
       ret = false;
     }
   });
@@ -65,20 +75,24 @@ const openExternal = urlString => {
   shell.openExternal(urlString).then(() => {});
 };
 
-const handleRedirect = browserView => (e, urlString) => {
-  const url = new URL(urlString);
-  if (shouldOpenInExternalBrowser(browserView, url)) {
-    e.preventDefault();
-    openExternal(urlString);
-  }
+const handleRedirect = view => {
+  return (e, urlString) => {
+    const url = new URL(urlString);
+    if (shouldOpenInExternalBrowser(view, url)) {
+      e.preventDefault();
+      openExternal(urlString);
+    }
+  };
 };
 
-const windowOpenHandler = browserView => ({url}) => {
-  if (!shouldOpenInExternalBrowser(browserView, new URL(url))) {
-    return {action: 'allow'};
-  }
-  openExternal(url);
-  return {action: 'deny'};
+const windowOpenHandler = view => {
+  return ({url}) => {
+    if (!shouldOpenInExternalBrowser(view, new URL(url))) {
+      return {action: 'allow'};
+    }
+    openExternal(url);
+    return {action: 'deny'};
+  };
 };
 
 module.exports = {

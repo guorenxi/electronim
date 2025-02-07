@@ -28,11 +28,11 @@ jobs:
       SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_LOGIN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: '20.x'
       - name: Install
         run: npm install
       - name: Change Package version
@@ -47,7 +47,7 @@ jobs:
         run: ./utils/upload-artifact.js electronim-linux-x86_64.AppImage application/octet-stream
       - name: Publish Snap
         run: |
-          sudo apt-get install snapd
+          sudo apt update && sudo apt-get install snapd
           sudo chown root:root / # Snapcraft requires '/' to be root owned
           sudo snap install snapcraft --classic
           snapcraft push --release=stable ./dist/electronim-linux-amd64.snap
@@ -58,11 +58,14 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16.x'
+          node-version: '20.x'
+      - name: macOS requirements
+        run: |
+          brew install python-setuptools
       - name: Install
         run: npm install
       - name: Install macOS only requirement (Electron Builder) # TODO: Move to prepare-electron-builder.js script

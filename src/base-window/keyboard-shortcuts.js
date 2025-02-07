@@ -19,7 +19,6 @@ const {APP_EVENTS} = require('../constants');
 const eventKey = ({key, shift = false, control = false, alt = false, meta = false}) =>
   `${key}-${shift}-${control}-${alt}-${meta}`;
 
-// eslint-disable-next-line arrow-body-style
 const eventAction = (func, {preventDefault = true} = {}) => {
   return event => {
     func(event);
@@ -31,10 +30,8 @@ const eventAction = (func, {preventDefault = true} = {}) => {
 
 const EVENTS = new Map();
 
-EVENTS.set(eventKey({key: 'Escape'}), eventAction(() => {
-  eventBus.emit(APP_EVENTS.appMenuClose);
-  eventBus.emit(APP_EVENTS.closeDialog);
-}, {preventDefault: false}));
+EVENTS.set(eventKey({key: 'Escape'}),
+  eventAction(() => eventBus.emit(APP_EVENTS.escape), {preventDefault: false}));
 
 EVENTS.set(eventKey({key: 'F11'}), eventAction(() => eventBus.emit(APP_EVENTS.fullscreenToggle)));
 
@@ -50,6 +47,12 @@ EVENTS.set(eventKey({key: 'Tab', control: true}), eventAction(() =>
 
 EVENTS.set(eventKey({key: 'Tab', shift: true, control: true}), eventAction(() =>
   eventBus.emit(APP_EVENTS.tabTraversePrevious)));
+
+const findInPageOpen = eventAction(() => eventBus.emit(APP_EVENTS.findInPageOpen));
+EVENTS.set(eventKey({key: 'f', meta: true}), findInPageOpen);
+EVENTS.set(eventKey({key: 'F', meta: true}), findInPageOpen);
+EVENTS.set(eventKey({key: 'f', control: true}), findInPageOpen);
+EVENTS.set(eventKey({key: 'F', control: true}), findInPageOpen);
 
 const registerAppShortcuts = (_, webContents) => {
   webContents.on('before-input-event', (event, {type, key, shift, control, alt, meta}) => {
